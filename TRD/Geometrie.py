@@ -3,9 +3,6 @@
 # Nous prenons la géométrie décrite dans "Definition of a 5-MW Reference Wind Turbine for
 # Offshore System Development"
 
-# [Version] 
-# [Mot-clés]
-
 # Auteur: Hao BAI
 # Date de création: 27/10/2017
 
@@ -25,7 +22,6 @@ from salome.smesh import smeshBuilder
 smesh = smeshBuilder.New(salome.myStudy)
 from salome.StdMeshers import StdMeshersBuilder
 
-import numpy
 from math import sin, cos, radians
 #------------------------------------------------------------------------
 #                              	   GEOMETRIE
@@ -39,6 +35,8 @@ OZ = geompy.MakeVectorDXDYDZ(0, 0, 1)
 
 # ======================== POINTS ========================
 TowerHt  = 87.6 # Height of tower above ground level [onshore] or MSL [offshore] (meters)
+HtFract = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+Elevation = [i * TowerHt for i in HtFract]
 
 NacCMxn  =  1.9 # Downwind distance from the tower-top to the nacelle CM (meters)
 NacCMyn  =  0.0 # Lateral  distance from the tower-top to the nacelle CM (meters)
@@ -57,12 +55,9 @@ BldAngle = 120.0 # The angle between 2 blades (degrees)
 # ======================== POINTS ========================
 # Tower
 list_tower = []
-
-node = geompy.MakeVertex(0., 0., 0.)
-list_tower.append(node)
-
-node = geompy.MakeVertex(0., 0., TowerHt)
-list_tower.append(node)
+for elem in Elevation:
+    node = geompy.MakeVertex(0., 0., elem)
+    list_tower.append(node)
 
 # Nacelle
 nacelleCM = geompy.MakeVertex(NacCMxn, NacCMyn, TowerHt+NacCMzn)
@@ -140,7 +135,8 @@ id_bld3 = geompy.addToStudy(bld3, "Blade3")
 # gg.createAndDisplayGO(id_bld3)
 
 # ======================== GROUPES ========================
-# +++ Créer des groupes de noeuds sous l'objet tower
+# +++ tower
+# |-- Groupe des noeuds
 vertexIDs = geompy.SubShapeAllIDs(tower, geompy.ShapeType["VERTEX"])
         
 Groupe_TwrRoot = geompy.CreateGroup(tower, geompy.ShapeType["VERTEX"])
@@ -150,8 +146,20 @@ geompy.addToStudyInFather(tower, Groupe_TwrRoot, 'Groupe_TwrRoot')
 Groupe_TwrTip = geompy.CreateGroup(tower, geompy.ShapeType["VERTEX"])
 geompy.UnionIDs(Groupe_TwrTip, [vertexIDs[-1]])
 geompy.addToStudyInFather(tower, Groupe_TwrTip, 'Groupe_TwrTip')
+# |-- Groupe des arrêtes
+edgeIDs = geompy.SubShapeAllIDs(tower, geompy.ShapeType["EDGE"])
 
-# +++ Créer des groupes de noeuds sous les objets bld
+segments = []
+i = 0
+for edgeid in edgeIDs:
+    i = i + 1
+    temp = geompy.CreateGroup(tower, geompy.ShapeType["EDGE"])
+    segments.append(temp)
+    geompy.UnionIDs(temp, [edgeid])
+    geompy.addToStudyInFather(tower, temp, 'Seg_'+str(i))
+
+
+# +++ bld: Groupe des noeuds
 # |-- Blade 1
 vertexIDs = geompy.SubShapeAllIDs(bld1, geompy.ShapeType["VERTEX"])
         
@@ -188,13 +196,13 @@ geompy.addToStudyInFather(bld3, Groupe_BldTip3, 'Groupe_BldTip3')
 
 # ======================== ASSEMBLAGE ========================
 windplant = geompy.MakeCompound([tower, hubCM, bld1, bld2, bld3])
-
-# Récupérer les groupes précédement définies
-list_windplant = [tower, Groupe_TwrRoot, Groupe_TwrTip, hubCM, bld1, Groupe_BldRoot1,
-                  Groupe_BldTip1, bld2, Groupe_BldRoot2, Groupe_BldTip2, bld3,
-                  Groupe_BldRoot3, Groupe_BldTip3]
 id_windplant = geompy.addToStudy(windplant, "WindPlant")
 gg.createAndDisplayGO(id_windplant)
+
+# Récupérer les groupes précédement définies
+list_windplant = [tower, Groupe_TwrRoot, Groupe_TwrTip] + segments + [hubCM, bld1,
+                  Groupe_BldRoot1, Groupe_BldTip1, bld2, Groupe_BldRoot2, Groupe_BldTip2,
+                  bld3, Groupe_BldRoot3, Groupe_BldTip3]
 
 geompy.RestoreGivenSubShapes(windplant, list_windplant, \
                              GEOM.FSM_GetInPlace, False, False)
@@ -203,15 +211,15 @@ geompy.RestoreGivenSubShapes(windplant, list_windplant, \
 vertexIDs = geompy.SubShapeAllIDs(windplant, geompy.ShapeType["VERTEX"])
 
 Groupe_Rotor = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_Rotor, [vertexIDs[1], vertexIDs[2], vertexIDs[3], vertexIDs[5],
-                vertexIDs[7]])
+geompy.UnionIDs(Groupe_Rotor, [vertexIDs[-8], vertexIDs[-7], vertexIDs[-6], vertexIDs[-4],
+                vertexIDs[-2]])
 geompy.addToStudyInFather( windplant, Groupe_Rotor, 'Groupe_Rotor')
 
 # Ajouiter un groupe de toutes les pâles
 edgeIDs = geompy.SubShapeAllIDs(windplant, geompy.ShapeType["EDGE"])
 
 Groupe_AllBlades = geompy.CreateGroup(windplant, geompy.ShapeType["EDGE"])
-geompy.UnionIDs(Groupe_AllBlades, edgeIDs[1:])
+geompy.UnionIDs(Groupe_AllBlades, edgeIDs[-3:])
 geompy.addToStudyInFather( windplant, Groupe_AllBlades, 'Groupe_AllBlades')
 
 
@@ -260,7 +268,13 @@ maillage.GroupOnGeom(bld1, 'Blade1', SMESH.EDGE)
 maillage.GroupOnGeom(bld2, 'Blade2', SMESH.EDGE)
 maillage.GroupOnGeom(bld3, 'Blade3', SMESH.EDGE)
 maillage.GroupOnGeom(Groupe_AllBlades, 'Groupe_AllBlades', SMESH.EDGE)
+j = 0
+for seg in segments:
+    j = j + 1
+    maillage.GroupOnGeom(seg, 'Seg_'+str(j), SMESH.EDGE)
 
 
 # ======================== EXPORTATION ========================
-maillage.ExportMED(r'./Eolien/Code_Aster/TRD/Maillage.mmed', False, SMESH.MED_V2_2, 1, None ,1)
+maillage.ExportMED(r'./Eolien/Code_Aster/TRD/Maillage.mmed', False, SMESH.MED_V2_2, 1, 
+                   None ,1)
+print ('Mesh has been exported to ./Eolien/Code_Aster/TRD/Maillage.mmed')

@@ -1,13 +1,13 @@
 # Etude RDM sans NACELLE
 
 
-DEBUT();
+DEBUT(PAR_LOT='NON');
 
 #------------------------------------------------------------------------
 #                                 MAILLAGE
 #------------------------------------------------------------------------
 mail=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=2);
-MACR_INFO_MAIL(MAILLAGE=mail)
+#MACR_INFO_MAIL(MAILLAGE=mail)
 mail=MODI_MAILLAGE(reuse=mail, MAILLAGE=mail,
                    ORIE_LIGNE=_F(GROUP_MA=('Tower', 'Blade1', 'Blade2', 'Blade3'),),
                    INFO = 2,
@@ -20,11 +20,13 @@ mesh=CREA_MAILLAGE(MAILLAGE=mail,
 #------------------------------------------------------------------------
 #                                 MATERIAU
 #------------------------------------------------------------------------
-twrIron=DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),
-		   		     );
+twrMat = DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),);
+bldMat = DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),);
 
 mat=AFFE_MATERIAU(MAILLAGE=mesh, 
-				  AFFE=(_F(GROUP_MA=('Tower', 'Blade1', 'Blade2', 'Blade3'), MATER=twrIron,),),);
+				  AFFE=(_F(GROUP_MA=('Tower'), MATER=twrMat,),
+                        _F(GROUP_MA=('Blade1', 'Blade2', 'Blade3'), MATER=bldMat,),
+                       ),);
 
 #------------------------------------------------------------------------
 #                                  MODELE
@@ -44,21 +46,32 @@ HubMass = 56780.0        # Hub mass (kg)
 YawBrMass = 0.0      # Yaw bearing mass (kg)
 RotorMass = NacMass + HubMass + YawBrMass # All the mass are supposed to be applied on the center mass of hub.
 
-# SWITCH BETWEEN 'HOMOTHETIQUE' AND 'CONSTANT' PLEASE !!!
+Thickness = [0.0351, 0.0341, 0.0330, 0.0320, 0.0309, 0.0299, 0.0289, 0.0278, 0.0268,
+             0.0257, 0.0247]
+Radius = [3.0, 2.8935, 2.787, 2.6805, 2.574, 2.4675, 2.361, 2.2545, 2.148, 2.0415, 1.935]
+
+segments = []
+for i in range(len(Thickness)-1):
+    segments.append(_F(GROUP_MA='Seg_'+str(i+1),
+				  	   SECTION='CERCLE',
+		     		   VARI_SECT='HOMOTHETIQUE',
+		  			   CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
+		  			   VALE=(Radius[i], Radius[i+1], float(Thickness[i]), float(Thickness[i+1])),
+		  			  ),
+                   )
+
+segments.append(_F(GROUP_MA=('Blade1', 'Blade2', 'Blade3'),
+                   SECTION='CERCLE',
+                   VARI_SECT='HOMOTHETIQUE',
+                   CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
+                   VALE=(1, 1, 1, 1),
+                  ),
+               )
+
+
+
 cara=AFFE_CARA_ELEM(MODELE=mod,
-                    POUTRE=(_F(GROUP_MA=('Tower', 'Blade1', 'Blade2', 'Blade3'),
-				  			   SECTION='CERCLE',
-				  			   VARI_SECT='HOMOTHETIQUE',
-				  			   CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
-				  			   VALE=(3.000, 1.935, 0.0351, 0.0247),
-				  			  ),
-                            _F(GROUP_MA=('Blade1', 'Blade2', 'Blade3'),
-                               SECTION='CERCLE',
-                               VARI_SECT='HOMOTHETIQUE',
-                               CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
-                               VALE=(1, 1, 1, 1),
-                              ),
-			        		),
+                    POUTRE=segments,
 				    DISCRET=(_F(GROUP_MA='HubCM',
 			        			CARA='K_TR_D_N',
 								REPERE='LOCAL',
