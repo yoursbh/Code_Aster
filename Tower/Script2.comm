@@ -1,0 +1,118 @@
+# [Method 1]Tower mass defined by section mass par unit length (kg/m)
+
+
+DEBUT(PAR_LOT='NON');
+
+#------------------------------------------------------------------------
+#                                 MAILLAGE
+#------------------------------------------------------------------------
+mesh=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=1);
+#MACR_INFO_MAIL(MAILLAGE=mail)
+mesh=MODI_MAILLAGE(reuse=mesh, MAILLAGE=mesh,
+                   ORIE_LIGNE=_F(GROUP_MA=('Tower'),),
+                   INFO = 1,
+                  );
+
+
+
+#------------------------------------------------------------------------
+#                                 MATERIAU
+#------------------------------------------------------------------------
+# twrMat = DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),);
+
+# mat=AFFE_MATERIAU(MAILLAGE=mesh,
+#                   AFFE=(_F(GROUP_MA=('Tower'), MATER=twrMat,),
+#                        ),);
+
+#------------------------------------------------------------------------
+#                                  MODELE
+#------------------------------------------------------------------------    
+mod=AFFE_MODELE(MAILLAGE=mesh,
+                AFFE=(_F(GROUP_MA=('Tower'),
+                         PHENOMENE='MECANIQUE', MODELISATION='DIS_T',),
+                     ),);
+
+#------------------------------------------------------------------------
+#                        CARACTERISTIQUE DES ELEMENTS
+#------------------------------------------------------------------------
+
+cara=AFFE_CARA_ELEM(MODELE=mod,
+				    DISCRET=(_F(GROUP_MA='Tower',
+			        			CARA='K_T_D_L',
+								REPERE='LOCAL',
+			        			VALE=(6.1434300E+11, 6.1434300E+11, 1),),
+			     			 _F(GROUP_MA='Tower',
+			        			CARA='M_T_D_L',
+								REPERE='LOCAL',
+			        			VALE=5.5908700E+03,),
+			    			),
+			       );
+
+#------------------------------------------------------------------------
+#                         CONDITIONS AUX LIMITES
+#------------------------------------------------------------------------
+# Type des appuis
+ddl=AFFE_CHAR_MECA(MODELE=mod, VERI_NORM='NON',
+		   		   DDL_IMPO=_F(GROUP_NO='Groupe_TwrRoot',
+			       			   DX=0, DY=0, DZ=0),
+                  );
+
+
+#------------------------------------------------------------------------
+#                              MODELISATION
+#------------------------------------------------------------------------
+# ==================== ANALYSE MODALE =====================
+# Calculer les matrices de rigidite, de masse, d'amortissement
+ASSEMBLAGE(MODELE=mod, CARA_ELEM=cara, #CHAM_MATER=mat,
+           CHARGE=ddl,
+           NUME_DDL=CO('numero'),
+           MATR_ASSE=(_F(MATRICE=CO('matrAssM'), OPTION='MASS_MECA',),
+           			  _F(MATRICE=CO('matrAssR'), OPTION='RIGI_MECA',),
+		     		 ),);
+
+# Calcul des modes propres
+freq=CALC_MODES(MATR_RIGI=matrAssR, MATR_MASS=matrAssM, #MATR_AMOR=matrAssA,
+				 SOLVEUR_MODAL=_F(METHODE='SORENSEN',
+								 COEF_DIM_ESPACE=5,),
+                 OPTION='CENTRE',
+                 CALC_FREQ=_F(NMAX_FREQ=10,
+							  FREQ=0.01,
+				   			 ),
+		         VERI_MODE=_F(STOP_ERREUR='NON',
+				   	  		 ),
+		     		 );
+
+
+#------------------------------------------------------------------------
+#                             DONNEES DE SORTIE
+#------------------------------------------------------------------------
+# Masse totale de la structure
+masse=POST_ELEM(MODELE=mod, CARA_ELEM=cara, #CHAM_MATER=mat,
+           		CHARGE=ddl,
+				MASS_INER=_F(TOUT='OUI'),);
+
+# ==================== TABLEAU DES RESULTATS =====================
+# Masse
+IMPR_TABLE(TABLE=masse,);
+
+# Frequences propres
+IMPR_RESU(RESU=_F(RESULTAT=freq,
+		  		  NOM_PARA=('FREQ',
+		  		  			'MASS_EFFE_DX','MASS_EFFE_DY','MASS_EFFE_DZ'),
+		  		  TOUT_CHAM='OUI',
+#                  NOM_CHAM='DEPL',
+				 ),
+	  	  INFO=1,);
+
+# ==================== CARTE DES RESULTATS =====================
+# IMPR_RESU(FORMAT='MED',
+#       UNITE=80,
+#       RESU=(_F(MAILLAGE=mesh,
+#           RESULTAT=freq,
+#           TOUT_CHAM='OUI',
+#           #INST=1.0,
+#           ),
+#            ),);
+
+FIN();
+
