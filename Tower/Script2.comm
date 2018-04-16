@@ -1,4 +1,6 @@
-# [Method 1]Tower mass defined by section mass par unit length (kg/m)
+# [Method 2]Tower mass defined by section mass par unit length (kg/m)
+# Maille de type : SEG2
+# Modèle : DIS_T avec K_T_D_L et M_T_D_L
 
 
 DEBUT(PAR_LOT='NON');
@@ -6,13 +8,18 @@ DEBUT(PAR_LOT='NON');
 #------------------------------------------------------------------------
 #                                 MAILLAGE
 #------------------------------------------------------------------------
-mesh=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=1);
+mesh=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=2);
 #MACR_INFO_MAIL(MAILLAGE=mail)
 mesh=MODI_MAILLAGE(reuse=mesh, MAILLAGE=mesh,
                    ORIE_LIGNE=_F(GROUP_MA=('Tower'),),
                    INFO = 1,
                   );
-
+# point = []
+# for i in range(11):
+#     point.append( _F(NOM_GROUP_MA='Node_'+str(i), GROUP_NO='Node_'+str(i)) )
+#
+# mesh=CREA_MAILLAGE(MAILLAGE=mail,
+#                       CREA_POI1=point,);
 
 
 #------------------------------------------------------------------------
@@ -32,29 +39,63 @@ mod=AFFE_MODELE(MAILLAGE=mesh,
 #------------------------------------------------------------------------
 #                        CARACTERISTIQUE DES ELEMENTS
 #------------------------------------------------------------------------
-Mass = [4.7406054E+04,
-4.4317672E+04,
-4.1332439E+04,
-3.8450356E+04,
-3.5671421E+04,
-3.2995591E+04,
-3.0422867E+04,
-2.7953335E+04,
-2.5586909E+04,
-2.3323588E+04]
+# Mass = [5.5908700E+03,
+# 5.2324300E+03,
+# 4.8857600E+03,
+# 4.5508700E+03,
+# 4.2277500E+03,
+# 3.9164100E+03,
+# 3.6168300E+03,
+# 3.3290300E+03,
+# 3.0530100E+03,
+# 2.7887500E+03,
+# 2.5362700E+03]
+#
+# discret = []
+# for i in range(len(Mass)-1):
+#     massMatrix = [0]*21
+#     massMatrix[0] = Mass[i]
+#     massMatrix[2] = Mass[i]
+#     massMatrix[5] = Mass[i]
+#     massMatrix[9] = Mass[i+1]
+#     massMatrix[14] = Mass[i+1]
+#     massMatrix[20] = Mass[i+1]
+#
+#     discret.append(_F(GROUP_MA='Seg_'+str(i+1),
+#                                 CARA='K_T_D_L',
+#                                 REPERE='LOCAL',
+#                                 VALE=(6.1434300E+11, 6.1434300E+11, 1),),
+#                   )
+#     discret.append(_F(GROUP_MA='Seg_'+str(i+1),
+#                                 CARA='M_T_L',
+#                                 REPERE='LOCAL',
+#                                 VALE=massMatrix,),
+#                   )
+
+
+Mass = [2.3703027E+04,
+2.2158836E+04,
+2.0666220E+04,
+1.9225178E+04,
+1.7835710E+04,
+1.6497796E+04,
+1.5211433E+04,
+1.3976668E+04,
+1.2793454E+04,
+1.1661794E+04]
+
 discret = []
 for i in range(len(Mass)):
     discret.append(_F(GROUP_MA='Seg_'+str(i+1),
-			        			CARA='K_T_D_L',
-								REPERE='LOCAL',
-			        			VALE=(6.1434300E+11, 6.1434300E+11, 1),),
+                                CARA='K_T_D_L',
+                                REPERE='LOCAL',
+                                VALE=(6.1434300E+11, 6.1434300E+11, 1),),
                   )
     discret.append(_F(GROUP_MA='Seg_'+str(i+1),
-			        			CARA='M_T_D_L',
-								REPERE='LOCAL',
-			        			VALE=Mass[i],),
+                                CARA='M_T_D_L',
+                                REPERE='LOCAL',
+                                VALE=Mass[i],),
                   )
-
 cara=AFFE_CARA_ELEM(MODELE=mod,
 				    DISCRET=discret,
 			       );
