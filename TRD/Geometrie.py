@@ -23,13 +23,11 @@ smesh = smeshBuilder.New(salome.myStudy)
 from salome.StdMeshers import StdMeshersBuilder
 
 from math import sin, cos, radians
+
+
 #------------------------------------------------------------------------
 #                              	   GEOMETRIE
 #------------------------------------------------------------------------
-# Le mât est composé par plusiers parties:
-# Mât =   Tour (de 0,00m à 87,6m)
-#		+ 
-
 # Repère globale
 OZ = geompy.MakeVectorDXDYDZ(0, 0, 1)
 
@@ -49,7 +47,8 @@ HubCM    =  0.0 # Distance from rotor apex to hub mass [positive downwind] (mete
 
 TipRad   = 63.0 # The distance from the rotor apex to the blade tip (meters)
 HubRad   =  1.5 # The distance from the rotor apex to the blade root (meters)
-PreCone  = -2.5 # Blade 1, 2 and 3 cone angle (degrees)   
+PreCone  = -2.5 # Blade 1, 2 and 3 cone angle (degrees)
+BldCM = 20.475 # Distance from the blade root to the blade CM (meters)
 BldAngle = 120.0 # The angle between 2 blades (degrees)
 
 # ======================== POINTS ========================
@@ -60,7 +59,7 @@ for elem in Elevation:
     list_tower.append(node)
 
 # Nacelle
-nacelleCM = geompy.MakeVertex(NacCMxn, NacCMyn, TowerHt+NacCMzn)
+nacCM = geompy.MakeVertex(NacCMxn, NacCMyn, TowerHt+NacCMzn)
 
 # Shaft and Rotor apex
 apexXs = OverHang*cos(radians(ShftTilt))
@@ -78,10 +77,10 @@ else:
     hubCM = geompy.MakeVertex(apexXs, apexYs, apexZs)
 
 # Blade 1
-bldTipXc1 = apexXs + TipRad*sin(radians(PreCone))
-bldTipYc1 = apexYs
-bldTipZc1 = apexZs + TipRad*cos(radians(PreCone))
-bldTip1 = geompy.MakeVertex(bldTipXc1, bldTipYc1, bldTipZc1)
+bldCMXc1 = apexXs + (HubRad+BldCM)*sin(radians(PreCone))
+bldCMYc1 = apexYs
+bldCMZc1 = apexZs + (HubRad+BldCM)*cos(radians(PreCone))
+bldCM1 = geompy.MakeVertex(bldCMXc1, bldCMYc1, bldCMZc1)
 
 bldRootXc1 = apexXs + HubRad*sin(radians(PreCone))
 bldRootYc1 = apexYs
@@ -89,10 +88,10 @@ bldRootZc1 = apexZs + HubRad*cos(radians(PreCone))
 bldRoot1 = geompy.MakeVertex(bldRootXc1, bldRootYc1, bldRootZc1)
 
 # Blade 2
-bldTipXc2 = apexXs + TipRad*sin(radians(PreCone))
-bldTipYc2 = apexYs + TipRad*sin(radians(-BldAngle))
-bldTipZc2 = apexZs - TipRad*cos(radians(PreCone))
-bldTip2 = geompy.MakeVertex(bldTipXc2, bldTipYc2, bldTipZc2)
+bldCMXc2 = apexXs + (HubRad+BldCM)*sin(radians(PreCone))
+bldCMYc2 = apexYs + (HubRad+BldCM)*sin(radians(-BldAngle))
+bldCMZc2 = apexZs - (HubRad+BldCM)*cos(radians(PreCone))
+bldCM2 = geompy.MakeVertex(bldCMXc2, bldCMYc2, bldCMZc2)
 
 bldRootXc2 = apexXs + HubRad*sin(radians(PreCone))
 bldRootYc2 = apexYs + HubRad*sin(radians(-BldAngle))
@@ -100,16 +99,15 @@ bldRootZc2 = apexZs - HubRad*cos(radians(PreCone))
 bldRoot2 = geompy.MakeVertex(bldRootXc2, bldRootYc2, bldRootZc2)
 
 # Blade 3
-bldTipXc3 = apexXs + TipRad*sin(radians(PreCone))
-bldTipYc3 = apexYs + TipRad*sin(radians(BldAngle))
-bldTipZc3 = apexZs - TipRad*cos(radians(PreCone))
-bldTip3 = geompy.MakeVertex(bldTipXc3, bldTipYc3, bldTipZc3)
+bldCMXc3 = apexXs + (HubRad+BldCM)*sin(radians(PreCone))
+bldCMYc3 = apexYs + (HubRad+BldCM)*sin(radians(BldAngle))
+bldCMZc3 = apexZs - (HubRad+BldCM)*cos(radians(PreCone))
+bldCM3 = geompy.MakeVertex(bldCMXc3, bldCMYc3, bldCMZc3)
 
 bldRootXc3 = apexXs + HubRad*sin(radians(PreCone))
 bldRootYc3 = apexYs + HubRad*sin(radians(BldAngle))
 bldRootZc3 = apexZs - HubRad*cos(radians(PreCone))
 bldRoot3 = geompy.MakeVertex(bldRootXc3, bldRootYc3, bldRootZc3)
-
 
 # ======================== LIGNES ========================
 # +++ Tower
@@ -117,28 +115,26 @@ tower = geompy.MakePolyline(list_tower, False) # Créer une liger fermée si 'Tr
 id_tower = geompy.addToStudy(tower, "Tower")
 # gg.createAndDisplayGO(id_tower)
 
-# +++ Hub C.M.
+# +++ Nacelle C.M. & Hub C.M.
+id_nacCM = geompy.addToStudy(nacCM, "NacCM")
 id_hubCM = geompy.addToStudy(hubCM, "HubCM")
 # gg.createAndDisplayGO(id_hubCM)
 
 # +++ Blade 1
-bld1 = geompy.MakePolyline([bldRoot1, bldTip1], False)
-id_bld1 = geompy.addToStudy(bld1, "Blade1")
-# gg.createAndDisplayGO(id_bld1)
+id_bldCM1 = geompy.addToStudy(bldCM1, "BldCM1")
+id_bldRoot1 = geompy.addToStudy(bldRoot1, "BldRoot1")
 # +++ Blade 2
-bld2 = geompy.MakePolyline([bldRoot2, bldTip2], False)
-id_bld2 = geompy.addToStudy(bld2, "Blade2")
-# gg.createAndDisplayGO(id_bld2)
+id_bldCM2 = geompy.addToStudy(bldCM2, "BldCM2")
+id_bldRoot2 = geompy.addToStudy(bldRoot2, "BldRoot2")
 # +++ Blade 3
-bld3 = geompy.MakePolyline([bldRoot3, bldTip3], False)
-id_bld3 = geompy.addToStudy(bld3, "Blade3")
-# gg.createAndDisplayGO(id_bld3)
+id_bldCM3 = geompy.addToStudy(bldCM3, "BldCM3")
+id_bldRoot3 = geompy.addToStudy(bldRoot3, "BldRoot3")
 
 # ======================== GROUPES ========================
 # +++ tower
 # |-- Groupe des noeuds
 vertexIDs = geompy.SubShapeAllIDs(tower, geompy.ShapeType["VERTEX"])
-        
+
 Groupe_TwrRoot = geompy.CreateGroup(tower, geompy.ShapeType["VERTEX"])
 geompy.UnionIDs(Groupe_TwrRoot, [vertexIDs[0]])
 geompy.addToStudyInFather(tower, Groupe_TwrRoot, 'Groupe_TwrRoot')
@@ -158,69 +154,46 @@ for edgeid in edgeIDs:
     geompy.UnionIDs(temp, [edgeid])
     geompy.addToStudyInFather(tower, temp, 'Seg_'+str(i))
 
-
 # +++ bld: Groupe des noeuds
 # |-- Blade 1
-vertexIDs = geompy.SubShapeAllIDs(bld1, geompy.ShapeType["VERTEX"])
-        
-Groupe_BldRoot1 = geompy.CreateGroup(bld1, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_BldRoot1, [vertexIDs[0]])
-geompy.addToStudyInFather(bld1, Groupe_BldRoot1, 'Groupe_BldRoot1')
-
-Groupe_BldTip1 = geompy.CreateGroup(bld1, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_BldTip1, [vertexIDs[-1]])
-geompy.addToStudyInFather(bld1, Groupe_BldTip1, 'Groupe_BldTip1')
-
 # |-- Blade 2
-vertexIDs = geompy.SubShapeAllIDs(bld2, geompy.ShapeType["VERTEX"])
-        
-Groupe_BldRoot2 = geompy.CreateGroup(bld2, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_BldRoot2, [vertexIDs[0]])
-geompy.addToStudyInFather(bld2, Groupe_BldRoot2, 'Groupe_BldRoot2')
-
-Groupe_BldTip2 = geompy.CreateGroup(bld2, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_BldTip2, [vertexIDs[-1]])
-geompy.addToStudyInFather(bld2, Groupe_BldTip2, 'Groupe_BldTip2')
-
 # |-- Blade 3
-vertexIDs = geompy.SubShapeAllIDs(bld3, geompy.ShapeType["VERTEX"])
-        
-Groupe_BldRoot3 = geompy.CreateGroup(bld3, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_BldRoot3, [vertexIDs[0]])
-geompy.addToStudyInFather(bld3, Groupe_BldRoot3, 'Groupe_BldRoot3')
-
-Groupe_BldTip3 = geompy.CreateGroup(bld3, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_BldTip3, [vertexIDs[-1]])
-geompy.addToStudyInFather(bld3, Groupe_BldTip3, 'Groupe_BldTip3')
-
 
 # ======================== ASSEMBLAGE ========================
-windplant = geompy.MakeCompound([tower, hubCM, bld1, bld2, bld3])
+windplant = geompy.MakeCompound([tower, nacCM, hubCM, bldCM1, bldCM2, bldCM3])
 id_windplant = geompy.addToStudy(windplant, "WindPlant")
 gg.createAndDisplayGO(id_windplant)
 
 # Récupérer les groupes précédement définies
-list_windplant = [tower, Groupe_TwrRoot, Groupe_TwrTip] + segments + [hubCM, bld1,
-                  Groupe_BldRoot1, Groupe_BldTip1, bld2, Groupe_BldRoot2, Groupe_BldTip2,
-                  bld3, Groupe_BldRoot3, Groupe_BldTip3]
+list_windplant = [tower, Groupe_TwrRoot, Groupe_TwrTip] + segments + [nacCM, hubCM,
+                  bldCM1, bldCM2, bldCM3]
 
 geompy.RestoreGivenSubShapes(windplant, list_windplant, \
                              GEOM.FSM_GetInPlace, False, False)
 
-# Ajouter un groupe de rotor: réservé à définir la liaison rigide
+# Ajouter des groupes pour définir la liaison rigide
 vertexIDs = geompy.SubShapeAllIDs(windplant, geompy.ShapeType["VERTEX"])
 
-Groupe_Rotor = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
-geompy.UnionIDs(Groupe_Rotor, [vertexIDs[-8], vertexIDs[-7], vertexIDs[-6], vertexIDs[-4],
-                vertexIDs[-2]])
-geompy.addToStudyInFather( windplant, Groupe_Rotor, 'Groupe_Rotor')
+Groupe_HubToBlade1 = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
+geompy.UnionIDs(Groupe_HubToBlade1, [vertexIDs[-4], vertexIDs[-3]])
+geompy.addToStudyInFather( windplant, Groupe_HubToBlade1, 'Groupe_HubToBlade1')
 
-# Ajouiter un groupe de toutes les pâles
-edgeIDs = geompy.SubShapeAllIDs(windplant, geompy.ShapeType["EDGE"])
+Groupe_HubToBlade2 = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
+geompy.UnionIDs(Groupe_HubToBlade2, [vertexIDs[-4], vertexIDs[-2]])
+geompy.addToStudyInFather( windplant, Groupe_HubToBlade2, 'Groupe_HubToBlade2')
 
-Groupe_AllBlades = geompy.CreateGroup(windplant, geompy.ShapeType["EDGE"])
-geompy.UnionIDs(Groupe_AllBlades, edgeIDs[-3:])
-geompy.addToStudyInFather( windplant, Groupe_AllBlades, 'Groupe_AllBlades')
+Groupe_HubToBlade3 = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
+geompy.UnionIDs(Groupe_HubToBlade3, [vertexIDs[-4], vertexIDs[-1]])
+geompy.addToStudyInFather( windplant, Groupe_HubToBlade3, 'Groupe_HubToBlade3')
+
+Groupe_NacelleToHub = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
+geompy.UnionIDs(Groupe_NacelleToHub, [vertexIDs[-5], vertexIDs[-4]])
+geompy.addToStudyInFather( windplant, Groupe_NacelleToHub, 'Groupe_NacelleToHub')
+
+Groupe_TowerTipToNacelle = geompy.CreateGroup(windplant, geompy.ShapeType["VERTEX"])
+geompy.UnionIDs(Groupe_TowerTipToNacelle, [vertexIDs[-6], vertexIDs[-5]])
+geompy.addToStudyInFather( windplant, Groupe_TowerTipToNacelle, 'Groupe_TowerTipToNacelle')
+
 
 
 #------------------------------------------------------------------------
@@ -233,7 +206,7 @@ smesh.SetName(algo_1D, 'Algorithme 1D_Wire Discretisation')
 
 # Hypothèse 1D
 hyp_1D = smesh.CreateHypothesis('LocalLength')
-hyp_1D.SetLength(5) 
+hyp_1D.SetLength(1) 
 hyp_1D.SetPrecision(1e-7)
 smesh.SetName(hyp_1D, 'Local Length_1')
 
@@ -253,26 +226,23 @@ smesh.SetName(maillage, 'Maillage')
 # Noeuds
 maillage.GroupOnGeom(Groupe_TwrRoot, 'Groupe_TwrRoot', SMESH.NODE)
 maillage.GroupOnGeom(Groupe_TwrTip, 'Groupe_TwrTip', SMESH.NODE)
+maillage.GroupOnGeom(nacCM, 'NacCM', SMESH.NODE)
 maillage.GroupOnGeom(hubCM, 'HubCM', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_BldRoot1, 'Groupe_BldRoot1', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_BldTip1, 'Groupe_BldTip1', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_BldRoot2, 'Groupe_BldRoot2', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_BldTip2, 'Groupe_BldTip2', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_BldRoot3, 'Groupe_BldRoot3', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_BldTip3, 'Groupe_BldTip3', SMESH.NODE)
-maillage.GroupOnGeom(Groupe_Rotor, 'Groupe_Rotor', SMESH.NODE)
+maillage.GroupOnGeom(bldCM1, 'BldCM1', SMESH.NODE)
+maillage.GroupOnGeom(bldCM2, 'BldCM2', SMESH.NODE)
+maillage.GroupOnGeom(bldCM3, 'BldCM3', SMESH.NODE)
+maillage.GroupOnGeom(Groupe_HubToBlade1, 'Groupe_HubToBlade1', SMESH.NODE)
+maillage.GroupOnGeom(Groupe_HubToBlade2, 'Groupe_HubToBlade2', SMESH.NODE)
+maillage.GroupOnGeom(Groupe_HubToBlade3, 'Groupe_HubToBlade3', SMESH.NODE)
+maillage.GroupOnGeom(Groupe_NacelleToHub, 'Groupe_NacelleToHub', SMESH.NODE)
+maillage.GroupOnGeom(Groupe_TowerTipToNacelle, 'Groupe_TowerTipToNacelle', SMESH.NODE)
 
 # Lignes
 maillage.GroupOnGeom(tower, 'Tower', SMESH.EDGE)
-maillage.GroupOnGeom(bld1, 'Blade1', SMESH.EDGE)
-maillage.GroupOnGeom(bld2, 'Blade2', SMESH.EDGE)
-maillage.GroupOnGeom(bld3, 'Blade3', SMESH.EDGE)
-maillage.GroupOnGeom(Groupe_AllBlades, 'Groupe_AllBlades', SMESH.EDGE)
 j = 0
 for seg in segments:
     j = j + 1
     maillage.GroupOnGeom(seg, 'Seg_'+str(j), SMESH.EDGE)
-
 
 # ======================== EXPORTATION ========================
 maillage.ExportMED(r'./Eolien/Code_Aster/TRD/Maillage.mmed', False, SMESH.MED_V2_2, 1, 

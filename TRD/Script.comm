@@ -1,4 +1,4 @@
-# Etude RDM sans NACELLE
+# Analyse modale sur l'éolien NREL 5MW
 
 
 DEBUT(PAR_LOT='NON');
@@ -9,11 +9,16 @@ DEBUT(PAR_LOT='NON');
 mail=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=2);
 #MACR_INFO_MAIL(MAILLAGE=mail)
 mail=MODI_MAILLAGE(reuse=mail, MAILLAGE=mail,
-                   ORIE_LIGNE=_F(GROUP_MA=('Tower', 'Blade1', 'Blade2', 'Blade3'),),
+                   ORIE_LIGNE=_F(GROUP_MA=('Tower',),),
                    INFO = 2,
                   );
 mesh=CREA_MAILLAGE(MAILLAGE=mail,
-		   		   CREA_POI1=_F(NOM_GROUP_MA='HubCM', GROUP_NO='HubCM'),);
+		   		   CREA_POI1=(_F(NOM_GROUP_MA='NacCM', GROUP_NO='NacCM'),
+                              _F(NOM_GROUP_MA='HubCM', GROUP_NO='HubCM'),
+                              _F(NOM_GROUP_MA='BldCM1', GROUP_NO='BldCM1'),
+                              _F(NOM_GROUP_MA='BldCM2', GROUP_NO='BldCM2'),
+                              _F(NOM_GROUP_MA='BldCM3', GROUP_NO='BldCM3'),
+                             ),);
 
 
 
@@ -21,30 +26,32 @@ mesh=CREA_MAILLAGE(MAILLAGE=mail,
 #                                 MATERIAU
 #------------------------------------------------------------------------
 twrMat = DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),);
-bldMat = DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),);
 
 mat=AFFE_MATERIAU(MAILLAGE=mesh, 
 				  AFFE=(_F(GROUP_MA=('Tower'), MATER=twrMat,),
-                        _F(GROUP_MA=('Blade1', 'Blade2', 'Blade3'), MATER=bldMat,),
                        ),);
 
 #------------------------------------------------------------------------
 #                                  MODELE
 #------------------------------------------------------------------------    
 mod=AFFE_MODELE(MAILLAGE=mesh,
-                AFFE=(_F(GROUP_MA=('Tower', 'Groupe_AllBlades'),
+                AFFE=(_F(GROUP_MA=('Tower'),
                          PHENOMENE='MECANIQUE', MODELISATION='POU_D_T',),
-                      _F(GROUP_MA=('HubCM',), PHENOMENE='MECANIQUE',
-                        MODELISATION='DIS_TR',),
+                      _F(GROUP_MA=('NacCM','HubCM','BldCM1','BldCM2','BldCM3'),
+                         PHENOMENE='MECANIQUE', MODELISATION='DIS_TR',),
                      ),);
 
 #------------------------------------------------------------------------
 #                        CARACTERISTIQUE DES ELEMENTS
 #------------------------------------------------------------------------
 NacMass = 240000.0        # Nacelle mass (kg)
+NacYIner = 2.60789E+06       # Nacelle inertia about yaw axis (kg m^2)
 HubMass = 56780.0        # Hub mass (kg)
-YawBrMass = 0.0      # Yaw bearing mass (kg)
-RotorMass = NacMass + HubMass + YawBrMass # All the mass are supposed to be applied on the center mass of hub.
+HubIner = 115926.0   # Hub inertia about rotor axis [3 blades] or teeter axis [2 blades] (kg m^2)
+BldMass = 17740   # Blade overall (integrated) mass (kg)
+BldIner = 11776047   # Blade second mass moment of inertia (w.r.t. Root) (kg m^2)
+BldCM = 20.475 # Distance from the blade root to the blade CM (meters)
+BldCMIner = BldIner - BldMass*BldCM**2   # Blade second mass moment of inertia (w.r.t. Blade C.M.) (kg m^2)
 
 Thickness = [0.0351, 0.0341, 0.0330, 0.0320, 0.0309, 0.0299, 0.0289, 0.0278, 0.0268,
              0.0257, 0.0247]
@@ -56,32 +63,35 @@ for i in range(len(Thickness)-1):
 				  	   SECTION='CERCLE',
 		     		   VARI_SECT='HOMOTHETIQUE',
 		  			   CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
-		  			   VALE=(Radius[i], Radius[i+1], float(Thickness[i]), float(Thickness[i+1])),
+		  			   VALE=(Radius[i], Radius[i+1], Thickness[i], Thickness[i+1]),
 		  			  ),
                    )
 
-segments.append(_F(GROUP_MA=('Blade1', 'Blade2', 'Blade3'),
-                   SECTION='CERCLE',
-                   VARI_SECT='HOMOTHETIQUE',
-                   CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
-                   VALE=(1, 1, 1, 1),
-                  ),
-               )
-
-
-
 cara=AFFE_CARA_ELEM(MODELE=mod,
                     POUTRE=segments,
-				    DISCRET=(_F(GROUP_MA='HubCM',
-			        			CARA='K_TR_D_N',
+				    DISCRET=(_F(GROUP_MA='NacCM',
+			        			CARA='M_TR_D_N',
 								REPERE='LOCAL',
-			        			VALE=(1,1,1,1,1,1),),
+			        			VALE=(NacMass, NacYIner,NacYIner,0,0,0,0, 0,0,0),),
 			     			 _F(GROUP_MA='HubCM',
 			        			CARA='M_TR_D_N',
 								REPERE='LOCAL',
-			        			VALE=(RotorMass,0,0,0,0,0,0,0,0,0),),
+			        			VALE=(HubMass, HubIner,HubIner,0,0,0,0, 0,0,0),),
+			     			 _F(GROUP_MA='BldCM1',
+			        			CARA='M_TR_D_N',
+								REPERE='LOCAL',
+			        			VALE=(BldMass, BldCMIner,BldCMIner,0,0,0,0, 0,0,0),),
+			     			 _F(GROUP_MA='BldCM2',
+			        			CARA='M_TR_D_N',
+								REPERE='LOCAL',
+			        			VALE=(BldMass, BldCMIner,BldCMIner,0,0,0,0, 0,0,0),),
+			     			 _F(GROUP_MA='BldCM3',
+			        			CARA='M_TR_D_N',
+								REPERE='LOCAL',
+			        			VALE=(BldMass, BldCMIner,BldCMIner,0,0,0,0, 0,0,0),),
 			    			),
 			        );
+
 
 #------------------------------------------------------------------------
 #                         CONDITIONS AUX LIMITES
@@ -90,7 +100,11 @@ cara=AFFE_CARA_ELEM(MODELE=mod,
 ddl=AFFE_CHAR_MECA(MODELE=mod, VERI_NORM='NON',
 		   		   DDL_IMPO=_F(GROUP_NO='Groupe_TwrRoot',
 			       			   DX=0, DY=0, DZ=0, DRX=0, DRY=0, DRZ=0),
-                   LIAISON_SOLIDE=_F(GROUP_NO='Groupe_Rotor'),);
+                   LIAISON_SOLIDE=_F(GROUP_NO=('Groupe_TowerTipToNacelle',
+                                               'Groupe_NacelleToHub',
+                                               'Groupe_HubToBlade1',
+                                               'Groupe_HubToBlade2',
+                                               'Groupe_HubToBlade3'),),);
 
 
 #------------------------------------------------------------------------
@@ -122,13 +136,29 @@ freq=CALC_MODES(MATR_RIGI=matrAssR, MATR_MASS=matrAssM, #MATR_AMOR=matrAssA,
 #                             DONNEES DE SORTIE
 #------------------------------------------------------------------------
 # Masse totale de la structure
-masse=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara,
-           		CHARGE=ddl,
+massALL=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
 				MASS_INER=_F(TOUT='OUI'),);
-
+massTwr=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
+				MASS_INER=_F(GROUP_MA='Tower'),);
+massNac=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
+				MASS_INER=_F(GROUP_MA='NacCM'),);
+massHub=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
+				MASS_INER=_F(GROUP_MA='HubCM'),);
+massBld1=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
+				MASS_INER=_F(GROUP_MA='BldCM1'),);
+massBld2=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
+				MASS_INER=_F(GROUP_MA='BldCM2'),);
+massBld3=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara, CHARGE=ddl,
+				MASS_INER=_F(GROUP_MA='BldCM3'),);
 # ==================== TABLEAU DES RESULTATS =====================
 # Masse
-IMPR_TABLE(TABLE=masse,);
+IMPR_TABLE(TABLE=massALL,);
+IMPR_TABLE(TABLE=massTwr,);
+IMPR_TABLE(TABLE=massNac,);
+IMPR_TABLE(TABLE=massHub,);
+IMPR_TABLE(TABLE=massBld1,);
+IMPR_TABLE(TABLE=massBld2,);
+IMPR_TABLE(TABLE=massBld3,);
 
 # Frequences propres
 IMPR_RESU(RESU=_F(RESULTAT=freq,
