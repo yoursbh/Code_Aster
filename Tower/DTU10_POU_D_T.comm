@@ -1,0 +1,122 @@
+# [Method 1]Tower mass defined by mass density (kg/m3) in DEFI_MATERIAU
+
+
+DEBUT(PAR_LOT='NON');
+
+#------------------------------------------------------------------------
+#                                 MAILLAGE
+#------------------------------------------------------------------------
+mesh=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=1);
+#MACR_INFO_MAIL(MAILLAGE=mail)
+mesh=MODI_MAILLAGE(reuse=mesh, MAILLAGE=mesh,
+                   ORIE_LIGNE=_F(GROUP_MA=('Tower'),),
+                   INFO = 1,
+                  );
+
+
+
+#------------------------------------------------------------------------
+#                                 MATERIAU
+#------------------------------------------------------------------------
+twrMat = DEFI_MATERIAU(ELAS=_F(E=210e9, NU=0.3, RHO=8500,),);
+
+mat=AFFE_MATERIAU(MAILLAGE=mesh, 
+				  AFFE=(_F(GROUP_MA=('Tower'), MATER=twrMat,),
+                       ),);
+
+#------------------------------------------------------------------------
+#                                  MODELE
+#------------------------------------------------------------------------    
+mod=AFFE_MODELE(MAILLAGE=mesh,
+                AFFE=(_F(GROUP_MA=('Tower'),
+                         PHENOMENE='MECANIQUE', MODELISATION='POU_D_T',),
+                     ),);
+
+#------------------------------------------------------------------------
+#                        CARACTERISTIQUE DES ELEMENTS
+#------------------------------------------------------------------------
+Thickness = [0.0380, 0.0380, 0.0360, 0.0360, 0.0340, 0.0340, 0.0320, 0.0320, 0.0300, 0.0300, 0.0280, 0.0280, 0.0260, 0.0260, 0.0240, 0.0240, 0.0220, 0.0220, 0.0200, 0.0200]
+Radius = [4.1500, 4.0108, 4.0108, 3.8715, 3.8715, 3.7323, 3.7323, 3.5931, 3.5930, 3.4538, 3.4538, 3.3146, 3.3146, 3.1753, 3.1753, 3.0361, 3.0361, 2.8969, 2.8969, 2.7500]
+
+segments = []
+for i in range(len(Thickness)-1):
+    segments.append(_F(GROUP_MA='Seg_'+str(i+1),
+				  	   SECTION='CERCLE',
+		     		   VARI_SECT='HOMOTHETIQUE',
+		  			   CARA=('R_DEBUT','R_FIN','EP_DEBUT','EP_FIN'),
+		  			   VALE=(Radius[i], Radius[i+1], Thickness[i], Thickness[i+1]),
+		  			  ),
+                   )
+
+cara=AFFE_CARA_ELEM(MODELE=mod,
+                    POUTRE=segments,
+			       );
+
+#------------------------------------------------------------------------
+#                         CONDITIONS AUX LIMITES
+#------------------------------------------------------------------------
+# Type des appuis
+ddl=AFFE_CHAR_MECA(MODELE=mod, VERI_NORM='NON',
+		   		   DDL_IMPO=_F(GROUP_NO='Groupe_TwrRoot',
+			       			   DX=0, DY=0, DZ=0, DRX=0, DRY=0, DRZ=0),
+                  );
+
+
+#------------------------------------------------------------------------
+#                              MODELISATION
+#------------------------------------------------------------------------
+# ==================== ANALYSE MODALE =====================
+# Calculer les matrices de rigidite, de masse, d'amortissement
+ASSEMBLAGE(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara,
+           CHARGE=ddl,
+           NUME_DDL=CO('numero'),
+           MATR_ASSE=(_F(MATRICE=CO('matrAssM'), OPTION='MASS_MECA',),
+           			  _F(MATRICE=CO('matrAssR'), OPTION='RIGI_MECA',),
+		     		 ),);
+
+# Calcul des modes propres
+freq=CALC_MODES(MATR_RIGI=matrAssR, MATR_MASS=matrAssM, #MATR_AMOR=matrAssA,
+				 SOLVEUR_MODAL=_F(METHODE='SORENSEN',
+								 COEF_DIM_ESPACE=5,),
+                 OPTION='CENTRE',
+                 CALC_FREQ=_F(NMAX_FREQ=10,
+							  FREQ=0.01,
+				   			 ),
+		         VERI_MODE=_F(STOP_ERREUR='NON',
+				   	  		 ),
+		     		 );
+
+
+#------------------------------------------------------------------------
+#                             DONNEES DE SORTIE
+#------------------------------------------------------------------------
+# Masse totale de la structure
+masse=POST_ELEM(MODELE=mod, CHAM_MATER=mat, CARA_ELEM=cara,
+           		CHARGE=ddl,
+				MASS_INER=_F(TOUT='OUI'),);
+
+# ==================== TABLEAU DES RESULTATS =====================
+# Masse
+IMPR_TABLE(TABLE=masse,);
+
+# Frequences propres
+IMPR_RESU(RESU=_F(RESULTAT=freq,
+		  		  NOM_PARA=('FREQ',
+		  		  			'MASS_EFFE_DX','MASS_EFFE_DY','MASS_EFFE_DZ'),
+		  		  TOUT_CHAM='OUI',
+#                  NOM_CHAM='DEPL',
+				 ),
+	  	  INFO=1,);
+
+# ==================== CARTE DES RESULTATS =====================
+# IMPR_RESU(FORMAT='MED',
+#       UNITE=80,
+#       RESU=(_F(MAILLAGE=mesh,
+#           RESULTAT=freq,
+#           TOUT_CHAM='OUI',
+#           #INST=1.0,
+#           ),
+#            ),);
+
+FIN();
+

@@ -1,0 +1,123 @@
+# [Method 2]Tower mass defined by section mass par unit length (kg/m)
+# Maille de type : SEG2
+# Modèle : DIS_TR avec K_TR_D_L et M_TR_D_L
+
+
+DEBUT(PAR_LOT='NON');
+
+#------------------------------------------------------------------------
+#                                 MAILLAGE
+#------------------------------------------------------------------------
+mesh=LIRE_MAILLAGE(FORMAT='MED', UNITE=20, INFO=2);
+#MACR_INFO_MAIL(MAILLAGE=mail)
+mesh=MODI_MAILLAGE(reuse=mesh, MAILLAGE=mesh,
+                   ORIE_LIGNE=_F(GROUP_MA=('Tower'),),
+                   INFO = 1,
+                  );
+
+
+
+#------------------------------------------------------------------------
+#                                 MATERIAU
+#------------------------------------------------------------------------
+
+
+
+#------------------------------------------------------------------------
+#                                  MODELE
+#------------------------------------------------------------------------    
+mod=AFFE_MODELE(MAILLAGE=mesh,
+                AFFE=(_F(GROUP_MA=('Tower'),
+                         PHENOMENE='MECANIQUE', MODELISATION='DIS_TR',),
+                     ),);
+
+#------------------------------------------------------------------------
+#                        CARACTERISTIQUE DES ELEMENTS
+#------------------------------------------------------------------------
+Mass = [47394.07044, 3.944459772, 43367.55828, 3.602045218, 39515.02866, 3.274396354, 35832.28972, 2.961513183, 32319.34147, 2.663395702, 28976.18391, 2.380043913, 25802.81703, 2.111457816, 22799.24084, 1.85763741, 19965.45533, 1.618582695, 18224.65668]
+SecondInertia = [8.416, 7.593, 7.199, 6.472, 6.117, 5.478, 5.160, 4.601, 4.317, 3.833, 3.580, 3.163, 2.940, 2.583, 2.387, 2.085, 1.913, 1.661, 1.512, 1.293]
+TorsionalStiff = [16.832, 15.187, 14.398, 12.944, 12.234, 10.956, 10.320, 9.203, 8.635, 7.665, 7.161, 6.326, 5.879, 5.166, 4.773, 4.170, 3.827, 3.322, 3.023, 2.585]
+discret = []
+for i in range(len(Mass)):
+    discret.append(_F(GROUP_MA='Seg_'+str(i+1),
+                                CARA='K_TR_D_L',
+                                REPERE='LOCAL',
+                                VALE=(1, 1, 1, 0,0,0),),
+                  )
+    discret.append(_F(GROUP_MA='Seg_'+str(i+1),
+                                CARA='M_TR_D_L',
+                                REPERE='LOCAL',
+                                VALE=(Mass[i], Mass[i], Mass[i], Mass[i]),),
+                  )
+cara=AFFE_CARA_ELEM(MODELE=mod,
+				    DISCRET=discret,
+			       );
+
+#------------------------------------------------------------------------
+#                         CONDITIONS AUX LIMITES
+#------------------------------------------------------------------------
+# Type des appuis
+ddl=AFFE_CHAR_MECA(MODELE=mod, VERI_NORM='NON',
+		   		   DDL_IMPO=_F(GROUP_NO='Groupe_TwrRoot',
+			       			   DX=0, DY=0, DZ=0, DRX=0, DRY=0, DRZ=0),
+                  );
+
+
+#------------------------------------------------------------------------
+#                              MODELISATION
+#------------------------------------------------------------------------
+# ==================== ANALYSE MODALE =====================
+# Calculer les matrices de rigidite, de masse, d'amortissement
+ASSEMBLAGE(MODELE=mod, CARA_ELEM=cara,
+           CHARGE=ddl,
+           NUME_DDL=CO('numero'),
+           MATR_ASSE=(_F(MATRICE=CO('matrAssM'), OPTION='MASS_MECA',),
+           			  _F(MATRICE=CO('matrAssR'), OPTION='RIGI_MECA',),
+		     		 ),);
+
+# Calcul des modes propres
+freq=CALC_MODES(MATR_RIGI=matrAssR, MATR_MASS=matrAssM,
+				 SOLVEUR_MODAL=_F(METHODE='SORENSEN',
+								 COEF_DIM_ESPACE=5,),
+                 OPTION='CENTRE',
+                 CALC_FREQ=_F(NMAX_FREQ=10,
+							  FREQ=0.01,
+				   			 ),
+		         VERI_MODE=_F(STOP_ERREUR='NON',
+				   	  		 ),
+		     		 );
+
+
+#------------------------------------------------------------------------
+#                             DONNEES DE SORTIE
+#------------------------------------------------------------------------
+# Masse totale de la structure
+masse=POST_ELEM(MODELE=mod, CARA_ELEM=cara,
+           		CHARGE=ddl,
+				MASS_INER=_F(TOUT='OUI'),);
+
+# ==================== TABLEAU DES RESULTATS =====================
+# Masse
+IMPR_TABLE(TABLE=masse,);
+
+# Frequences propres
+IMPR_RESU(RESU=_F(RESULTAT=freq,
+		  		  NOM_PARA=('FREQ',
+		  		  			'MASS_EFFE_DX','MASS_EFFE_DY','MASS_EFFE_DZ'),
+		  		  TOUT_CHAM='OUI',
+#                  NOM_CHAM='DEPL',
+				 ),
+	  	  INFO=1,);
+
+# ==================== CARTE DES RESULTATS =====================
+# IMPR_RESU(FORMAT='MED',
+#       UNITE=80,
+#       RESU=(_F(MAILLAGE=mesh,
+#           RESULTAT=freq,
+#           TOUT_CHAM='OUI',
+#           #INST=1.0,
+#           ),
+#            ),);
+
+FIN();
+
