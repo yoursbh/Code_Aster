@@ -23,7 +23,7 @@ smesh = smeshBuilder.New(salome.myStudy)
 from salome.StdMeshers import StdMeshersBuilder
 
 from math import sin, cos, radians
-
+import math
 
 #------------------------------------------------------------------------
 #                              	   GEOMETRIE
@@ -61,7 +61,10 @@ for elem in Elevation:
 # Nacelle
 nacCM = geompy.MakeVertex(NacCMxn, NacCMyn, TowerHt+NacCMzn)
 
-# Shaft and Rotor apex
+# Shaft
+shft = geompy.MakeVertex(0., 0., TowerHt+Twr2Shft)
+
+# Rotor apex
 apexXs = OverHang*cos(radians(ShftTilt))
 apexYs = 0.0
 apexZs = TowerHt + Twr2Shft + OverHang*sin(radians(ShftTilt))
@@ -76,8 +79,12 @@ if HubCM != 0.0:
 else:
     hubCM = geompy.MakeVertex(apexXs, apexYs, apexZs)
 
+# Rotor axis
+rotorAxis = geompy.MakeVector(shft, hubCM)
+geompy.addToStudy(rotorAxis, "rotorAxis")
+
 # Blade 1
-bldCMXc1 = apexXs + (HubRad+BldCM)*sin(radians(PreCone))
+bldCMXc1 = apexXs - (HubRad+BldCM)*sin(radians(PreCone))
 bldCMYc1 = apexYs
 bldCMZc1 = apexZs + (HubRad+BldCM)*cos(radians(PreCone))
 bldCM1 = geompy.MakeVertex(bldCMXc1, bldCMYc1, bldCMZc1)
@@ -88,26 +95,18 @@ bldRootZc1 = apexZs + HubRad*cos(radians(PreCone))
 bldRoot1 = geompy.MakeVertex(bldRootXc1, bldRootYc1, bldRootZc1)
 
 # Blade 2
-bldCMXc2 = apexXs + (HubRad+BldCM)*sin(radians(PreCone))
-bldCMYc2 = apexYs + (HubRad+BldCM)*sin(radians(-BldAngle))
-bldCMZc2 = apexZs - (HubRad+BldCM)*cos(radians(PreCone))
-bldCM2 = geompy.MakeVertex(bldCMXc2, bldCMYc2, bldCMZc2)
+bldCM2 = geompy.MakeRotation(bldCM1, rotorAxis, radians(-BldAngle))
+geompy.addToStudy(bldCM2, "bldCM2")
 
-bldRootXc2 = apexXs + HubRad*sin(radians(PreCone))
-bldRootYc2 = apexYs + HubRad*sin(radians(-BldAngle))
-bldRootZc2 = apexZs - HubRad*cos(radians(PreCone))
-bldRoot2 = geompy.MakeVertex(bldRootXc2, bldRootYc2, bldRootZc2)
+bldRoot2 = geompy.MakeRotation(bldRoot1, rotorAxis, radians(-BldAngle))
+geompy.addToStudy(bldRoot2, "bldRoot2")
 
 # Blade 3
-bldCMXc3 = apexXs + (HubRad+BldCM)*sin(radians(PreCone))
-bldCMYc3 = apexYs + (HubRad+BldCM)*sin(radians(BldAngle))
-bldCMZc3 = apexZs - (HubRad+BldCM)*cos(radians(PreCone))
-bldCM3 = geompy.MakeVertex(bldCMXc3, bldCMYc3, bldCMZc3)
+bldCM3 = geompy.MakeRotation(bldCM1, rotorAxis, radians(BldAngle))
+geompy.addToStudy(bldCM3, "bldCM3")
 
-bldRootXc3 = apexXs + HubRad*sin(radians(PreCone))
-bldRootYc3 = apexYs + HubRad*sin(radians(BldAngle))
-bldRootZc3 = apexZs - HubRad*cos(radians(PreCone))
-bldRoot3 = geompy.MakeVertex(bldRootXc3, bldRootYc3, bldRootZc3)
+bldRoot3 = geompy.MakeRotation(bldRoot1, rotorAxis, radians(BldAngle))
+geompy.addToStudy(bldRoot3, "bldRoot3")
 
 # ======================== LIGNES ========================
 # +++ Tower
@@ -206,8 +205,8 @@ smesh.SetName(algo_1D, 'Algorithme 1D_Wire Discretisation')
 
 # Hypothèse 1D
 hyp_1D = smesh.CreateHypothesis('LocalLength')
-hyp_1D.SetLength(1) 
-hyp_1D.SetPrecision(1e-7)
+hyp_1D.SetLength(0.1) 
+hyp_1D.SetPrecision(1e-9)
 smesh.SetName(hyp_1D, 'Local Length_1')
 
 # ======================== ATTRIBUTION ========================
@@ -245,6 +244,6 @@ for seg in segments:
     maillage.GroupOnGeom(seg, 'Seg_'+str(j), SMESH.EDGE)
 
 # ======================== EXPORTATION ========================
-maillage.ExportMED(r'./Eolien/Code_Aster/TRD/Maillage.mmed', False, SMESH.MED_V2_2, 1, 
+maillage.ExportMED(r'./Eolien/Code_Aster/TRD/NREL5.mmed', False, SMESH.MED_V2_2, 1, 
                    None ,1)
-print ('Mesh has been exported to ./Eolien/Code_Aster/TRD/Maillage.mmed')
+print ('Mesh has been exported to ./Eolien/Code_Aster/TRD/NREL5.mmed')

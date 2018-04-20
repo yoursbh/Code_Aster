@@ -46,14 +46,31 @@ mod=AFFE_MODELE(MAILLAGE=mesh,
 #------------------------------------------------------------------------
 #                        CARACTERISTIQUE DES ELEMENTS
 #------------------------------------------------------------------------
-NacMass = 240000.0        # Nacelle mass (kg)
-NacYIner = 2.60789E+06       # Nacelle inertia about yaw axis (kg m^2)
-HubMass = 56780.0        # Hub mass (kg)
-HubIner = 115926.0   # Hub inertia about rotor axis [3 blades] or teeter axis [2 blades] (kg m^2)
-BldMass = 17740   # Blade overall (integrated) mass (kg)
-BldIner = 11776047   # Blade second mass moment of inertia (w.r.t. Root) (kg m^2)
-BldCM = 20.475 # Distance from the blade root to the blade CM (meters)
-BldCMIner = BldIner - BldMass*BldCM**2   # Blade second mass moment of inertia (w.r.t. Blade C.M.) (kg m^2)
+NacMass  =   240000.0        # Nacelle mass (kg)
+# NacYIner =  2607890.0       # Nacelle inertia about yaw axis (kg m^2)
+HubMass  =    56780.0        # Hub mass (kg)
+# HubIner  =   115926.0   # Hub inertia about rotor axis [3 blades] or teeter axis [2 blades] (kg m^2)
+BldMass  =    17740.0   # Blade overall (integrated) mass (kg)
+BldIner  = 11776047.0   # Blade second mass moment of inertia (w.r.t. Root) (kg m^2)
+BldCM    =       20.475 # Distance from the blade root to the blade CM (meters)
+BldCMIner = BldIner - BldMass*(BldCM**2)   # Blade second mass moment of inertia (w.r.t. Blade C.M.) (kg m^2)
+
+ShftTilt =  -5.0 # Rotor shaft tilt angle (degrees)
+PreCone  =  -2.5 # Blade 1, 2 and 3 cone angle (degrees)
+BldAngle = 120.0 # The angle between 2 blades (degrees)
+
+# cf. AFFE_CARA_ELEM page 29 CARA='ANGL_NAUT'
+BldAlpha1 = 0.0
+BldBeta1 = -(ShftTilt - PreCone)
+BldGamma1 = 0.0
+
+BldAlpha2 = 0.0
+BldBeta2 = -(ShftTilt+PreCone)
+BldGamma2 = BldAngle
+
+BldAlpha3 = 0.0
+BldBeta3 = -(ShftTilt+PreCone)
+BldGamma3 = -BldAngle
 
 Thickness = [0.0351, 0.0341, 0.0330, 0.0320, 0.0309, 0.0299, 0.0289, 0.0278, 0.0268,
              0.0257, 0.0247]
@@ -71,6 +88,10 @@ for i in range(len(Thickness)-1):
 
 cara=AFFE_CARA_ELEM(MODELE=mod,
                     POUTRE=segments,
+                    ORIENTATION = (_F(CARA='ANGL_NAUT', VALE=(BldAlpha1, BldBeta1, BldGamma1), GROUP_MA='BldCM1'),
+                                   _F(CARA='ANGL_NAUT', VALE=(BldAlpha2, BldBeta2, BldGamma2), GROUP_MA='BldCM2'),
+                                   _F(CARA='ANGL_NAUT', VALE=(BldAlpha3, BldBeta3, BldGamma3), GROUP_MA='BldCM3'),
+                                  ),
 				    DISCRET=(_F(GROUP_MA='NacCM',
 			        			CARA='M_T_D_N',
 								REPERE='LOCAL',
@@ -174,12 +195,17 @@ IMPR_RESU(RESU=_F(RESULTAT=freq,
 # ==================== CARTE DES RESULTATS =====================
 IMPR_RESU(FORMAT='MED',
 	  UNITE=80,
-	  RESU=(_F(MAILLAGE=mesh,
-		  RESULTAT=freq,
-		  TOUT_CHAM='OUI',
-		  #INST=1.0,
-		  ),
-	       ),);
+      # RESU=(_F(MAILLAGE=mesh,
+      #           RESULTAT=freq,
+      #           TOUT_CHAM='OUI',
+      #           #INST=1.0,
+      #           ),),
+      CONCEPT=_F(CARA_ELEM=cara,
+                 REPERE_LOCAL='OUI',
+                 MODELE=mod,
+                ),
+	       
+           );
 
 FIN();
 
